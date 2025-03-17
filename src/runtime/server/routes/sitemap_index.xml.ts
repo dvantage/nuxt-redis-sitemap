@@ -5,12 +5,23 @@ import { useSitemapRuntimeConfig } from '../utils'
 import { buildSitemapIndex, urlsToIndexXml } from '../sitemap/builder/sitemap-index'
 import type { SitemapIndexRenderCtx, SitemapOutputHookCtx } from '../../types'
 import { useNitroUrlResolvers } from '../sitemap/nitro'
+import { fetchFromRedis } from '../redis'
 
 export default defineEventHandler(async (e) => {
   const runtimeConfig = useSitemapRuntimeConfig()
   const nitro = useNitroApp()
   const resolvers = useNitroUrlResolvers(e)
-  const sitemaps = await buildSitemapIndex(resolvers, runtimeConfig, nitro)
+  let sitemaps = await buildSitemapIndex(resolvers, runtimeConfig, nitro)
+
+  /**
+   * REDIS
+   */
+  if (runtimeConfig.redis !== undefined && runtimeConfig.redis !== null && runtimeConfig.redis.useForSitemap) {
+    const sitemapsFromRedis = await fetchFromRedis(runtimeConfig, resolvers)
+    if (sitemapsFromRedis.length > 0) {
+      sitemaps = sitemaps.concat(sitemapsFromRedis)
+    }
+  }
 
   // tell the prerender to render the other sitemaps (if we prerender this one)
   // this solves the dynamic chunking sitemap issue
@@ -19,7 +30,8 @@ export default defineEventHandler(async (e) => {
       e,
       'x-nitro-prerender',
       sitemaps.filter(entry => !!entry._sitemapName)
-        .map(entry => encodeURIComponent(joinURL(runtimeConfig.sitemapsPathPrefix || '', `/${entry._sitemapName}.xml`))).join(', '),
+        .map(entry => encodeURIComponent(joinURL(runtimeConfig.sitemapsPathPrefix || '', `/${entry._sitemapName}.xml`)))
+        .join(', '),
     )
   }
 

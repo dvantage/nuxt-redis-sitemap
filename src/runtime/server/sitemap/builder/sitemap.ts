@@ -6,7 +6,7 @@ import type {
   ModuleRuntimeConfig,
   NitroUrlResolvers,
   ResolvedSitemapUrl,
-  SitemapDefinition, SitemapInputCtx,
+  SitemapDefinition, SitemapInputCtx, SitemapUrl,
   SitemapUrlInput,
 } from '../../../types'
 import { preNormalizeEntry } from '../urlset/normalise'
@@ -225,8 +225,17 @@ export async function buildSitemapUrls(sitemap: SitemapDefinition, resolvers: Ni
   const sourcesInput = sitemap.includeAppSources ? await globalSitemapSources() : []
   sourcesInput.push(...await childSitemapSources(sitemap))
   const sources = await resolveSitemapSources(sourcesInput, resolvers.event)
+
+  /**
+   * Redis
+   */
+  let urls = sources.flatMap(s => s.urls)
+  if (sitemap.fromRedis && (sitemap.urls as SitemapUrl[]).length > 0) {
+    urls = urls.concat(sitemap.urls as SitemapUrl[])
+  }
+
   const resolvedCtx: SitemapInputCtx = {
-    urls: sources.flatMap(s => s.urls),
+    urls,
     sitemapName: sitemap.sitemapName,
     event: resolvers.event,
   }

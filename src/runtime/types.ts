@@ -153,6 +153,10 @@ export interface ModuleOptions extends SitemapDefinition {
    * @experimental Will be enabled by default in v5 (if stable)
    */
   experimentalCompression?: boolean
+
+  redis: Record<any, any> | null
+
+  baseUrl: string
 }
 
 export interface IndexSitemapRemotes {
@@ -221,10 +225,10 @@ export interface AutoI18nConfig {
   strategy: 'prefix' | 'prefix_except_default' | 'prefix_and_default' | 'no_prefix'
 }
 
-export interface ModuleRuntimeConfig extends Pick<ModuleOptions, 'sitemapsPathPrefix' | 'cacheMaxAgeSeconds' | 'sitemapName' | 'excludeAppSources' | 'sortEntries' | 'defaultSitemapsChunkSize' | 'xslColumns' | 'xslTips' | 'debug' | 'discoverImages' | 'discoverVideos' | 'autoLastmod' | 'xsl' | 'credits' | 'minify'> {
+export interface ModuleRuntimeConfig extends Pick<ModuleOptions, 'sitemapsPathPrefix' | 'cacheMaxAgeSeconds' | 'sitemapName' | 'excludeAppSources' | 'sortEntries' | 'defaultSitemapsChunkSize' | 'xslColumns' | 'xslTips' | 'debug' | 'discoverImages' | 'discoverVideos' | 'autoLastmod' | 'xsl' | 'credits' | 'minify' | 'redis' | 'baseUrl'> {
   version: string
   isNuxtContentDocumentDriven: boolean
-  sitemaps: { index?: Pick<SitemapDefinition, 'sitemapName' | '_route'> & { sitemaps: SitemapIndexEntry[] } } & Record<string, Omit<SitemapDefinition, 'urls'> & { _hasSourceChunk?: boolean }>
+  sitemaps: { index?: Pick<SitemapDefinition, 'sitemapName' | '_route'> & { sitemaps: SitemapIndexEntry[] } } & Record<string, SitemapDefinition & { _hasSourceChunk?: boolean }>
   autoI18n?: AutoI18nConfig
   isMultiSitemap: boolean
   isI18nMapped: boolean
@@ -301,6 +305,13 @@ export interface SitemapDefinition {
    * @internal
    */
   _route?: string
+
+  /**
+   * Indicates whether the data originated from a Redis cache.
+   * If set to `true`, the data was retrieved from Redis.
+   * If set to `false` or `undefined`, the data did not come from Redis.
+   */
+  fromRedis?: boolean
 }
 
 interface NitroBaseHook {

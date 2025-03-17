@@ -40,13 +40,14 @@ import {
   splitPathForI18nLocales,
 } from './util/i18n'
 import { normalizeFilters } from './util/filter'
+import { fetchFromRedisForHandler } from './runtime/server/redis'
 
 // eslint-disable-next-line
 export interface ModuleOptions extends _ModuleOptions {}
 
 export default defineNuxtModule<ModuleOptions>({
   meta: {
-    name: '@nuxtjs/sitemap',
+    name: '@dvantage/nuxt-redis-sitemap',
     compatibility: {
       nuxt: '>=3.9.0',
       bridge: false,
@@ -55,16 +56,16 @@ export default defineNuxtModule<ModuleOptions>({
   },
   defaults: {
     enabled: true,
-    credits: true,
+    credits: false,
     cacheMaxAgeSeconds: 60 * 10, // cache for 10 minutes
     minify: false,
     debug: false,
     defaultSitemapsChunkSize: 1000,
-    autoLastmod: false,
-    discoverImages: true,
-    discoverVideos: true,
+    autoLastmod: true,
+    discoverImages: false,
+    discoverVideos: false,
     urls: [],
-    sortEntries: true,
+    sortEntries: false,
     sitemapsPathPrefix: '/__sitemap__/',
     xsl: '/__sitemap__/style.xsl',
     xslTips: true,
@@ -79,6 +80,7 @@ export default defineNuxtModule<ModuleOptions>({
     // sources
     sources: [],
     excludeAppSources: [],
+    redis: null,
   },
   async setup(config, nuxt) {
     const { resolve } = createResolver(import.meta.url)
@@ -468,8 +470,21 @@ declare module 'vue-router' {
         })
       }
       else {
+        /**
+         * REDIS
+         */
+        let sitemapsFromRedis = {}
+        if (config.redis !== undefined && config.redis !== null && config.redis.useForSitemap) {
+          sitemapsFromRedis = await fetchFromRedisForHandler(config as unknown as ModuleRuntimeConfig)
+        }
+
+        const sitemapsForEachRoute = {
+          ...(config.sitemaps as object),
+          ...sitemapsFromRedis,
+        }
+
         // register each key as a route
-        for (const sitemapName of Object.keys(config.sitemaps || {})) {
+        for (const sitemapName of Object.keys(sitemapsForEachRoute || {})) {
           addServerHandler({
             route: withLeadingSlash(`${sitemapName}.xml`),
             handler: resolve('./runtime/server/routes/sitemap/[sitemap].xml'),
@@ -605,6 +620,9 @@ declare module 'vue-router' {
       credits: config.credits,
       version: version!,
       sitemaps,
+
+      redis: config.redis,
+      baseUrl: nuxt.options.app.baseURL,
     }
     if (resolvedAutoI18n)
       runtimeConfig.autoI18n = resolvedAutoI18n

@@ -117,12 +117,6 @@ export default defineNuxtConfig({
       failOnError: false,
     },
   },
-
-  i18n: {
-    locales: ['en', 'fr'],
-    defaultLocale: 'en',
-  },
-
   // app: {
   //   baseURL: '/base'
   // },
@@ -132,63 +126,40 @@ export default defineNuxtConfig({
   },
 
   sitemap: {
-    debug: true,
-    // sitemapName: 'test.xml',
-    minify: false,
-    cacheMaxAgeSeconds: 10,
-    xslColumns: [
-      { label: 'URL', width: '50%' },
-      { label: 'Last Modified', select: 'sitemap:lastmod', width: '25%' },
-      { label: 'Hreflangs', select: 'count(xhtml:link)', width: '25%' },
-    ],
-    experimentalWarmUp: true,
-    urls: [
-      '/manual-url-test',
-    ],
-    sources: [
-      '/some-invalid-url',
-      ['https://api.example.com/pages/urls', { headers: { Authorization: 'Bearer <token>' } }],
-    ],
-    defaultSitemapsChunkSize: 10,
-    sitemaps: {
-      posts: {
-        includeAppSources: true,
-        urls: async () => {
-          await new Promise((then) => {
-            setTimeout(then, 5000)
-          })
-          return ['/slow-url']
-        },
-        include: ['/slow-url', '/en/blog/**', '/fr/blog/**', '/blog/**'],
+    redis: {
+      useForSitemap: true,
+      useGzip: true,
+      keyName: 'products-published-tracks',
+      partNamespace: 'products',
+      config: {
+        host: '127.0.0.1',
+        port: 6379,
+        password: '123',
       },
-      pages: {
+    },
+    xsl: false,
+    sitemapsPathPrefix: '/',
+    experimentalWarmUp: true,
+    experimentalCompression: true,
+    debug: true,
+    cacheMaxAgeSeconds: 10,
+    sitemaps: {
+      'static-pages': {
         includeAppSources: true,
-        sources: [
-          '/api/sitemap-foo',
-          'https://example.com/invalid.json',
-        ],
-        exclude: ['/en/blog/**', '/fr/blog/**', '/blog/**', /.*hide-me.*/g],
+        exclude: ['/en/blog/**', '/fr/blog/**', '/blog/**', /.*hide-me.*/g, '/about'],
+      },
+      'products-part10': {
         urls: [
           {
-            loc: '/about',
+            loc: '/product/432423',
             lastmod: '2023-02-21T08:50:52.000Z',
-            alternatives: [
-              {
-                href: '/fr/about',
-                hreflang: 'fr',
-              },
-            ],
-            images: [
-              {
-                loc: 'https://example.com/image-3.jpg',
-              },
-            ],
+          },
+          {
+            loc: '/product/8888',
+            lastmod: '2023-02-21T08:50:52.000Z',
           },
         ],
       },
-      index: [
-        { sitemap: 'https://www.example.com/sitemap-pages.xml' },
-      ],
     },
   },
 })
