@@ -21,28 +21,40 @@ export async function fetchFromRedisByPart(
     redisKey = config.redis.keyName
   }
 
-  const redis = new Redis({ ...defaultOptions, ...config.redis.config })
-  const totalUrls = await redis.llen(redisKey)
-  const pageSize = 5000
-  const sitemapCount = Math.ceil(totalUrls / pageSize)
+  let redis
+  try {
+    redis = new Redis({ ...defaultOptions, ...config.redis.config })
+    const totalUrls = await redis.llen(redisKey)
+    const pageSize = 5000
+    const sitemapCount = Math.ceil(totalUrls / pageSize)
 
-  if (part < 1 || part > sitemapCount) {
+    if (part < 1 || part > sitemapCount) {
+      return []
+    }
+
+    const i = part - 1
+    const start = i * pageSize
+    const end = start + pageSize - 1
+
+    let routes = await redis.lrange(redisKey, start, end)
+    routes = routes.map((item) => {
+      const route = JSON.parse(item)
+      route.loc = route.url
+      delete route.url
+      return route
+    })
+
+    return routes as unknown as SitemapUrl[]
+  }
+  catch (error) {
+    console.error('Error connecting to Redis:', error)
     return []
   }
-
-  const i = part - 1
-  const start = i * pageSize
-  const end = start + pageSize - 1
-
-  let routes = await redis.lrange(redisKey, start, end)
-  routes = routes.map((item) => {
-    const route = JSON.parse(item)
-    route.loc = route.url
-    delete route.url
-    return route
-  })
-
-  return routes as unknown as SitemapUrl[]
+  finally {
+    if (redis) {
+      redis.disconnect()
+    }
+  }
 }
 
 async function prepareSitemapFromRedis(config: ModuleRuntimeConfig, preRegistrationForFutureRoutes = false): Promise<SitemapIndexEntry[]> {
@@ -66,60 +78,72 @@ async function prepareSitemapFromRedis(config: ModuleRuntimeConfig, preRegistrat
     partNamespace = config.redis.partNamespace
   }
 
-  const redis = new Redis({ ...defaultOptions, ...config.redis.config })
-  const totalUrls = await redis.llen(redisKey)
-  const pageSize = 5000
-  const sitemapCount = Math.ceil(totalUrls / pageSize)
+  let redis
+  try {
+    redis = new Redis({ ...defaultOptions, ...config.redis.config })
+    const totalUrls = await redis.llen(redisKey)
+    const pageSize = 5000
+    const sitemapCount = Math.ceil(totalUrls / pageSize)
 
-  let lastmod = new Date().toISOString()
+    let lastmod = new Date().toISOString()
 
-  const sitemaps = []
-  let lastPart = null
-  for (let i = 0; i < sitemapCount; i++) {
-    const start = i * pageSize
-    const end = start + pageSize - 1
+    const sitemaps = []
+    let lastPart = null
+    for (let i = 0; i < sitemapCount; i++) {
+      const start = i * pageSize
+      const end = start + pageSize - 1
 
-    let routes = await redis.lrange(redisKey, start, end)
+      let routes = await redis.lrange(redisKey, start, end)
 
-    routes = routes.map((item) => {
-      return {
-        ...JSON.parse(item),
+      routes = routes.map((item) => {
+        return {
+          ...JSON.parse(item),
+        }
+      })
+
+      if (routes.length > 0) {
+        if (routes.length === 1) {
+          const [route] = sitemaps
+          lastmod = route.lastmod
+        }
+        else {
+          // @ts-expect-error 123
+          lastmod = routes[routes.length - 1].lastmod
+        }
       }
-    })
 
-    if (routes.length > 0) {
-      if (routes.length === 1) {
-        const [route] = sitemaps
-        lastmod = route.lastmod
-      }
-      else {
-        // @ts-expect-error 123
-        lastmod = routes[routes.length - 1].lastmod
+      const partPath = `/${partNamespace}-part${i + 1}.xml`
+
+      lastPart = i + 1
+
+      sitemaps.push({
+        _sitemapName: partPath,
+        lastmod,
+      })
+
+      if (preRegistrationForFutureRoutes && lastPart !== null) {
+        for (let i = 1; i <= 2; i++) {
+          const partPath = `/${partNamespace}-part${lastPart + i}.xml`
+
+          sitemaps.push({
+            _sitemapName: partPath,
+            lastmod: new Date().toISOString(),
+          })
+        }
       }
     }
 
-    const partPath = `/${partNamespace}-part${i + 1}.xml`
-
-    lastPart = i + 1
-
-    sitemaps.push({
-      _sitemapName: partPath,
-      lastmod,
-    })
-
-    if (preRegistrationForFutureRoutes && lastPart !== null) {
-      for (let i = 1; i <= 2; i++) {
-        const partPath = `/${partNamespace}-part${lastPart + i}.xml`
-
-        sitemaps.push({
-          _sitemapName: partPath,
-          lastmod: new Date().toISOString(),
-        })
-      }
+    return sitemaps as unknown as SitemapIndexEntry[]
+  }
+  catch (error) {
+    console.error('Error connecting to Redis:', error)
+    return []
+  }
+  finally {
+    if (redis) {
+      redis.disconnect()
     }
   }
-
-  return sitemaps as unknown as SitemapIndexEntry[]
 }
 
 export async function fetchFromRedisForHandler(config: ModuleRuntimeConfig): Promise<Record<string, string>> {
