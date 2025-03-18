@@ -146,7 +146,7 @@ async function prepareSitemapFromRedis(config: ModuleRuntimeConfig, preRegistrat
   }
 }
 
-export async function fetchFromRedisForHandler(config: ModuleRuntimeConfig): Promise<Record<string, string>> {
+export async function fetchFromRedisForRegisterRoutes(config: ModuleRuntimeConfig): Promise<Record<string, string>> {
   const sitemaps = await prepareSitemapFromRedis(config, true)
 
   const sitemapsAsObj = sitemaps.reduce((acc, { _sitemapName, lastmod }) => {

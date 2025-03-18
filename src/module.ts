@@ -40,7 +40,6 @@ import {
   splitPathForI18nLocales,
 } from './util/i18n'
 import { normalizeFilters } from './util/filter'
-import { fetchFromRedisForHandler } from './runtime/server/redis'
 
 // eslint-disable-next-line
 export interface ModuleOptions extends _ModuleOptions {}
@@ -356,6 +355,8 @@ declare module 'vue-router' {
       addServerPlugin(resolve('./runtime/server/plugins/warm-up'))
     if (config.experimentalCompression)
       addServerPlugin(resolve('./runtime/server/plugins/compression'))
+    if (config.redis && config.redis.useForSitemap)
+      addServerPlugin(resolve('./runtime/server/plugins/routes-from-redis'))
 
     // @ts-expect-error untyped
     const isNuxtContentDocumentDriven = (!!nuxt.options.content?.documentDriven || config.strictNuxtContentPaths)
@@ -470,21 +471,8 @@ declare module 'vue-router' {
         })
       }
       else {
-        /**
-         * REDIS
-         */
-        let sitemapsFromRedis = {}
-        if (config.redis !== undefined && config.redis !== null && config.redis.useForSitemap) {
-          sitemapsFromRedis = await fetchFromRedisForHandler(config as unknown as ModuleRuntimeConfig)
-        }
-
-        const sitemapsForEachRoute = {
-          ...(config.sitemaps as object),
-          ...sitemapsFromRedis,
-        }
-
         // register each key as a route
-        for (const sitemapName of Object.keys(sitemapsForEachRoute || {})) {
+        for (const sitemapName of Object.keys(config.sitemaps || {})) {
           addServerHandler({
             route: withLeadingSlash(`${sitemapName}.xml`),
             handler: resolve('./runtime/server/routes/sitemap/[sitemap].xml'),
