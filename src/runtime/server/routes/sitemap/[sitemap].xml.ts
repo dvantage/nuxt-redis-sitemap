@@ -2,7 +2,7 @@ import { createError, defineEventHandler, getRouterParam } from 'h3'
 import { withoutLeadingSlash, withoutTrailingSlash } from 'ufo'
 import { useSitemapRuntimeConfig } from '../../utils'
 import { createSitemap } from '../../sitemap/nitro'
-import { fetchFromRedisByPart } from '../../redis'
+import { fetchFromRedisByKeyNameAndPart } from '../../redis'
 
 export default defineEventHandler(async (e) => {
   const runtimeConfig = useSitemapRuntimeConfig(e)
@@ -18,15 +18,22 @@ export default defineEventHandler(async (e) => {
    */
   if (sitemapName && runtimeConfig.redis !== undefined && runtimeConfig.redis !== null
     && runtimeConfig.redis.useForSitemap
-    && sitemapName.startsWith(`${runtimeConfig.redis.partNamespace}-part`)
+    && /-part/.test(sitemapName)
   ) {
-    const [routesPart] = sitemapName.match(/(\d{1,4})$/)
-    const routes = await fetchFromRedisByPart(runtimeConfig, Number(routesPart))
-    if (routes.length > 0) {
-      sitemaps[sitemapName] = {
-        sitemapName: sitemapName,
-        fromRedis: true,
-        urls: routes,
+    const regex = /^(.+)-part(\d+)$/
+    const match = sitemapName.match(regex)
+
+    //
+    if (match && match[1] && match[1] in runtimeConfig.redis.keyName) {
+      const [,namespace, part] = match
+      const keyName = runtimeConfig.redis.keyName[namespace]
+      const routes = await fetchFromRedisByKeyNameAndPart(runtimeConfig, keyName, Number(part))
+      if (routes.length > 0) {
+        sitemaps[sitemapName] = {
+          sitemapName: sitemapName,
+          fromRedis: true,
+          urls: routes,
+        }
       }
     }
   }

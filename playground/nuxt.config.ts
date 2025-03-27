@@ -129,8 +129,7 @@ export default defineNuxtConfig({
     redis: {
       useForSitemap: true,
       useGzip: true,
-      keyName: 'products-published-tracks',
-      partNamespace: 'products',
+      keyName: { products: 'product-redis-key', users: 'users-redis-key' },
       config: {
         host: '127.0.0.1',
         port: 6379,
